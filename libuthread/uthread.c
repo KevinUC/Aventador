@@ -28,7 +28,6 @@ typedef struct TCB
 	threadState_t _state;
 } TCB; /* define thread control block */
 
-
 typedef struct TCBController
 {
 	queue_t _queue; /* queue of waiting tds */
@@ -43,39 +42,35 @@ TCBController tcbController; /* maintains tcbs, this is a global var */
 
 void uthread_yield(void)
 {
-	printf("%s\n", __func__);
 	if (queue_length(tcbController._queue) == 0)
 	{
-		return; /* no other waiting thread avaible */
+		return; /* no other waiting thread avalible */
 	}
 
-printf("%s add\n", __func__);
 	/* add current td to waiting queue */
 	queue_enqueue(tcbController._queue, tcbController._runningTd);
 
 	TCB *newRunningTd;
 	TCB *oldRunningTd = tcbController._runningTd; /* make a copy */
 
-printf("%s pop\n", __func__);
 	/* obtain tcb of the next running td */
 	queue_dequeue(tcbController._queue, (void **)&newRunningTd);
 
 	tcbController._runningTd = newRunningTd;
 
-printf("%s switch\n", __func__);
 	/* context switch */
 	uthread_ctx_switch(&(oldRunningTd->_context), &(newRunningTd->_context));
 }
 
 uthread_t uthread_self(void)
 {
-	printf("%s\n", __func__);
+
 	return tcbController._runningTd->_tid;
 }
 
 int uthread_create(uthread_func_t func, void *arg)
 {
-	printf("%s\n", __func__);
+
 	static bool isFirstInvocation = true;
 
 	if (isFirstInvocation)
@@ -98,7 +93,6 @@ int uthread_create(uthread_func_t func, void *arg)
 		tcbController._runningTd = tcb; /* set main td as running td */
 
 		isFirstInvocation = false;
-
 	}
 
 	/* subsequent calls to uthread_create */
@@ -134,11 +128,14 @@ int uthread_create(uthread_func_t func, void *arg)
 void uthread_exit(int retval)
 {
 	/* TODO Phase 2 */
+	printf("exit %d\n", retval);
+	printf("thread%d is calling exit()\n", uthread_self());
+	uthread_yield();
 }
 
 int uthread_join(uthread_t tid, int *retval)
 {
-	printf("%s\n", __func__);
+
 	while (true)
 	{
 		if (queue_length(tcbController._queue) == 0)
