@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "queue.h"
 
@@ -121,7 +122,7 @@ int queue_delete(queue_t queue, void *data)
     }
 
     node *currentNode = queue->_tail->_prev; /* search from the oldest node */
-    bool found = false;                      /* mark if data exists*/
+    bool found = false;                      /* mark if data exists */
     int ret = -1;                            /*return value of the function */
 
     while (currentNode != queue->_head)
@@ -158,6 +159,8 @@ int queue_iterate(queue_t queue, queue_func_t func, void *arg, void **data)
 
     while (currentNode != queue->_head)
     {
+        /* func arg: tid */
+        /* func data: tcb */
         if (func(currentNode->_data, arg) == 1)
         {
             if (data != NULL)
