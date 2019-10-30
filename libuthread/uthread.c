@@ -59,13 +59,7 @@ void switchToFirstReadyTd()
 	TCB *oldRunningTd = tcbController._runningTd; /* make a copy */
 
 	/* obtain tcb of the next running td */
-	int ret = queue_dequeue(tcbController._readyQueue, (void **)&newRunningTd);
-
-	if (ret == -1)
-	{
-		printf("ERROR: switchToFirstReadyTd(): Ready queue is empty \n");
-		exit(1);
-	}
+	queue_dequeue(tcbController._readyQueue, (void **)&newRunningTd);
 
 	tcbController._runningTd = newRunningTd;
 
@@ -75,8 +69,11 @@ void switchToFirstReadyTd()
 
 void uthread_yield(void)
 {
+	preempt_disable();
+
 	if (queue_length(tcbController._readyQueue) == 0)
 	{
+		preempt_enable();
 		return; /* no other waiting thread avalible */
 	}
 
@@ -88,7 +85,11 @@ void uthread_yield(void)
 
 uthread_t uthread_self(void)
 {
-	return tcbController._runningTd->_tid;
+	preempt_disable();
+	uthread_t tid = tcbController._runningTd->_tid;
+	preempt_enable();
+
+	return tid;
 }
 
 int uthread_init()
@@ -133,11 +134,16 @@ int uthread_create(uthread_func_t func, void *arg)
 		{
 			return -1; /* uthread_init failed */
 		}
+
 		isFirstInvocation = false;
+		preempt_start(); /* enable preemption */
 	}
+
+	preempt_disable();
 
 	if (tcbController._count == USHRT_MAX)
 	{
+		preempt_enable();
 		return -1; /* TID value overflow */
 	}
 
@@ -147,6 +153,7 @@ int uthread_create(uthread_func_t func, void *arg)
 
 	if (stack == NULL)
 	{
+		preempt_enable();
 		return -1;
 	}
 
@@ -160,10 +167,13 @@ int uthread_create(uthread_func_t func, void *arg)
 
 	if (uthread_ctx_init(&(tcb->_context), stack, func, arg) != 0)
 	{
+		preempt_enable();
 		return -1;
 	}
 
 	queue_enqueue(tcbController._readyQueue, (void *)tcb);
+
+	preempt_enable();
 
 	return tcb->_tid;
 }
@@ -184,6 +194,8 @@ int findThread(void *data, void *arg)
 
 void uthread_exit(int retval)
 {
+	preempt_disable();
+
 	/* wake up joined thread if there is any */
 
 	int joinerTid = tcbController._JoinedBy[uthread_self()];
@@ -198,11 +210,6 @@ void uthread_exit(int retval)
 		if (joinerTcb != NULL && joinerTcb->_tid == joinerTid)
 		{
 			queue_delete(tcbController._blockedQueue, joinerTcb);
-		}
-		else
-		{
-			printf("ERROR: uthread_exit: joiner's TCB doesn't exist in block queue\n");
-			exit(1);
 		}
 
 		/* add joiner thread to ready queue */
@@ -256,10 +263,11 @@ int collectJoinedThread(uthread_t tid, int *retval)
 int uthread_join(uthread_t tid, int *retval)
 {
 	/* check if tid is valid for joining */
+	preempt_disable();
 
 	if (!isTidValid(tid))
 	{
-		printf("ERROR: uthread_join: invalid TID\n");
+		preempt_enable();
 		return -1;
 	}
 
@@ -269,6 +277,7 @@ int uthread_join(uthread_t tid, int *retval)
 
 	if (collectJoinedThread(tid, retval) == 0)
 	{
+		preempt_enable();
 		return 0;
 	}
 
@@ -280,7 +289,9 @@ int uthread_join(uthread_t tid, int *retval)
 
 	/* wake up from here, start cleaning joined thread */
 
+	preempt_disable();
 	collectJoinedThread(tid, retval);
+	preempt_enable();
 
 	return 0;
 }

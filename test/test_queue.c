@@ -5,35 +5,106 @@
 
 #include "../libuthread/queue.h"
 
-/* This unit test is directly copied from the assignment prompt */
-void test_create(void)
+/* This unit test is referenced from page 6 of the assignment prompt (ECS-150-Project 2) */
+void testCreate(void)
 {
-    queue_t q;
-    q = queue_create();
-    assert(q != NULL);
-    printf("test_create OK ...\n");
+    queue_t q1 = NULL;
+    queue_t q2 = NULL;
+
+    q1 = queue_create();
+    q2 = queue_create();
+
+    assert(q1 != NULL);
+    assert(q2 != NULL);
 }
 
-/* This unit test is referenced from the assignment prompt */
-void test_queue_simple(void)
+void testDestroy(void)
 {
-    queue_t q;
-    int data = 3, *ptr;
-    q = queue_create();
-    assert(queue_length(q) == 0);
-
-    queue_enqueue(q, &data);
-    assert(queue_length(q) == 1);
-
-    queue_dequeue(q, (void **)&ptr);
-    assert(ptr == &data);
-    assert(queue_length(q) == 0);
+    queue_t q = queue_create();
 
     assert(queue_destroy(q) == 0);
-    printf("test_queue_simple OK ...\n");
 }
 
-void test_queue_delete(void)
+void testDestroyNull(void)
+{
+    queue_t q = NULL;
+
+    assert(queue_destroy(q) == -1);
+}
+
+void testDestroyNonEmpty(void)
+{
+    queue_t q = queue_create();
+
+    int i = 1;
+
+    queue_enqueue(q, &i);
+
+    assert(queue_destroy(q) == -1);
+}
+
+void testEnqueueErrorHandle(void)
+{
+    queue_t q1 = queue_create();
+    queue_t q2 = NULL;
+    int i = 1;
+
+    assert(queue_enqueue(q1, NULL) == -1);
+    assert(queue_enqueue(q2, &i) == -1);
+}
+
+void testDequeueErrorHandle(void)
+{
+    queue_t q1 = queue_create();
+    queue_t q2 = NULL;
+    int *i;
+
+    assert(queue_dequeue(q1, NULL) == -1);
+    assert(queue_dequeue(q2, (void **)&i) == -1);
+    assert(queue_dequeue(q1, (void **)&i) == -1); /* queue is empty */
+}
+
+void testEnqueueAndDequeue(void)
+{
+    queue_t q;
+    q = queue_create();
+
+    int numbers[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
+    int *ptr;
+
+    for (int i = 0; i <= 16; i++)
+    {
+        assert(queue_enqueue(q, &numbers[i]) == 0);
+    }
+
+    assert(queue_length(q) == 17);
+
+    for (int i = 0; i <= 15; i++)
+    {
+        assert(queue_dequeue(q, (void **)&ptr) == 0);
+        assert(ptr == &numbers[i]);
+    }
+
+    assert(queue_dequeue(q, NULL) == -1);
+    assert(queue_dequeue(q, (void **)&ptr) == 0);
+    assert(ptr == &numbers[16]);
+    assert(queue_length(q) == 0);
+}
+
+void testDeleteErrorHandle(void)
+{
+    queue_t q1 = queue_create();
+    queue_t q2 = NULL;
+
+    int *data1 = NULL;
+    int i = 0;
+
+    assert(queue_delete(q2, &i) == -1);
+    assert(queue_delete(q1, data1) == -1);
+    assert(queue_delete(q1, &i) == -1); /* data is not found in queue */
+}
+
+void testDelete(void)
 {
     queue_t q;
     q = queue_create();
@@ -41,9 +112,6 @@ void test_queue_delete(void)
     int numbers[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 200};
     char chs[] = {'a', 'b', 'c', 'd', 'e', 'f'};
     char strs[][10] = {"hello", "how", "are", "you"};
-
-    assert(queue_delete(q, NULL) == -1);       /* delete NULL */
-    assert(queue_delete(NULL, &chs[2]) == -1); /* queue is NULL */
 
     for (int i = 0; i <= 4; i++)
     {
@@ -94,100 +162,102 @@ void test_queue_delete(void)
     assert(queue_delete(q, &strs[2]) == 0);
 
     assert(queue_length(q) == 0);
-
-    printf("test_queue_delete OK ...\n");
 }
 
-void test_enqueue_and_dequeue(void)
+void testIterateErrorHandle(void)
 {
-    queue_t q;
-    q = queue_create();
-
-    int numbers[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
-    int *ptr;
-
-    assert(queue_enqueue(q, NULL) == -1);
-    assert(queue_enqueue(NULL, &numbers[1]) == -1);
-
-    assert(queue_dequeue(q, NULL) == -1);
-    assert(queue_dequeue(NULL, (void **)&ptr) == -1);
-    assert(queue_dequeue(q, (void **)&ptr) == -1);
-
-    for (int i = 0; i <= 16; i++)
-    {
-        assert(queue_enqueue(q, &numbers[i]) == 0);
-    }
-
-    assert(queue_length(q) == 17);
-
-    for (int i = 0; i <= 15; i++)
-    {
-        assert(queue_dequeue(q, (void **)&ptr) == 0);
-        assert(ptr == &numbers[i]);
-    }
-
-    assert(queue_dequeue(q, NULL) == -1);
-    assert(queue_dequeue(q, (void **)&ptr) == 0);
-    assert(ptr == &numbers[16]);
-    assert(queue_length(q) == 0);
-
-    printf("test_enqueue_and_dequeue OK ...\n");
+    assert(queue_iterate(NULL, NULL, NULL, NULL) == -1);
 }
 
-/* Callback function that increments items by a certain value */
-static int inc_item(void *data, void *arg)
+/* This callback function is modified from page 7 of the assignment prompt (ECS-150-Project 2) 
+   it takes the absolute value of the given value 
+*/
+
+int absoluteValue(void *data, void *arg)
 {
-    int *a = (int *)data;
-    int inc = (int)(long)arg;
-    *a += inc;
+    int *num = (int *)data;
+
+    if (*num < 0)
+    {
+        *num *= -1;
+    }
+
     return 0;
 }
 
-/* Callback function that finds a certain item according to its value */
-static int find_item(void *data, void *arg)
+/* This callback function is modified from page 7 of the assignment prompt (ECS-150-Project 2) 
+   it finds the first value larger than the given threshold 
+*/
+
+int findNum(void *data, void *arg)
 {
-    int *a = (int *)data;
-    int match = (int)(long)arg;
-    if (*a == match)
+    int *num = (int *)data;
+    int threshold = (int)(long)arg;
+
+    if (*num > threshold)
         return 1;
+
     return 0;
 }
 
-static int print_int_item(void *data, void *arg)
-{
-    int *a = (int *)data;
-    printf("%d\n", *a);
-    return 0;
-}
+/* This function is partially referenced from page 7-8 of the assignment prompt (ECS-150-Project 2) 
+   it takes the absolute value of the given value 
+*/
 
-void test_iterator(void)
+void testIterate(void)
 {
-    queue_t q;
-    int data[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    int i;
-    int *ptr;
-    /* Initialize the queue and enqueue items */
-    q = queue_create();
-    for (i = 0; i < sizeof(data) / sizeof(data[0]); i++)
-        queue_enqueue(q, &data[i]);
-    /* Add value '1' to every item of the queue */
-    queue_iterate(q, inc_item, (void *)1, NULL);
-    assert(data[0] == 2);
-    /* Find and get the item which is equal to value '5' */
-    ptr = NULL;
-    queue_iterate(q, find_item, (void *)5, (void **)&ptr);
+    queue_t q = queue_create();
+
+    int numbers[] = {-1, -1000, -3, 4, 5, 6, 7, 8, 9, 10, -200};
+    int *ptr = NULL;
+
+    for (int i = 0; i <= 10; i++)
+    {
+        queue_enqueue(q, &numbers[i]);
+    }
+
+    queue_iterate(q, absoluteValue, NULL, NULL); /* take absolute value of each element of the array */
+
+    assert(numbers[2] == 3);
+
+    queue_iterate(q, findNum, (void *)199, (void **)&ptr); /* find first number larger than 199 */
+
     assert(ptr != NULL);
-    assert(*ptr == 5);
-    assert(ptr == &data[3]);
+    assert(ptr == &numbers[1]);
+    assert(*ptr == 1000);
+}
 
-    printf("test_iterator OK ...\n");
+void testQueueLengthErrorHandle(void)
+{
+    assert(queue_length(NULL) == -1);
+}
+
+void testQueueLength(void)
+{
+    int list[] = {1, 2, 3};
+    queue_t q = queue_create();
+
+    queue_enqueue(q, &list[0]);
+    queue_enqueue(q, &list[1]);
+
+    assert(queue_length(q) == 2);
 }
 
 int main(int argc, char *argv[])
 {
-    test_create();
-    test_queue_simple();
-    test_enqueue_and_dequeue();
-    test_queue_delete();
-    test_iterator();
+    /* run all the unit tests */
+
+    testCreate();
+    testDestroy();
+    testDestroyNull();
+    testDestroyNonEmpty();
+    testQueueLengthErrorHandle();
+    testQueueLength();
+    testEnqueueErrorHandle();
+    testDequeueErrorHandle();
+    testEnqueueAndDequeue();
+    testDeleteErrorHandle();
+    testDelete();
+    testIterateErrorHandle();
+    testIterate();
 }

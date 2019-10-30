@@ -1,18 +1,29 @@
-all: libuthread.a
+targets := libuthread.a
+objs    := queue.o uthread.o context.o preempt.o
 
-libuthread.a: queue.o uthread.o context.o preempt.o
-	ar rcs libuthread.a queue.o uthread.o context.o preempt.o
+CC      := gcc
+CFLAGS  := -Wall -Werror
+AR      := ar
+ARFLAGS := rcs
 
-queue.o: queue.c queue.h
-	gcc -Wall -Werror -c -o queue.o queue.c
+ifneq ($(V),1)
+B = @
+endif
 
-uthread.o: uthread.c uthread.h preempt.h context.h queue.h
-	gcc -Wall -Werror -c -o uthread.o uthread.c
+all: $(targets)
 
-context.o: context.c context.h uthread.h preempt.h
-	gcc -Wall -Werror -c -o context.o context.c
+deps := $(patsubst %.o,%.d,$(objs))
+-include $(deps)
+DEPFLAGS = -MMD -MF $(@:.o=.d)
 
-preempt.o: preempt.c preempt.h uthread.h
-	gcc -Wall -Werror -c -o preempt.o preempt.c
+libuthread.a: $(objs)
+	@echo "AR   $@"
+	$(B)$(AR) $(ARFLAGS) $@ $^
 
-clean: rm *.o *.a
+%.o: %.c
+	@echo "CC   $@"
+	$(B)$(CC) $(CFLAGS) -c -o $@ $< $(DEPFLAGS)
+
+clean: 
+	@echo "CLEAN"
+	$(B)rm -f $(objs) $(targets) $(deps)
